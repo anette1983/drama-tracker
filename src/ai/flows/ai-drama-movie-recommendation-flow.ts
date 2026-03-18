@@ -85,7 +85,7 @@ Here is the user's watched history:
 {{{watchedHistory}}}
 
 Here are their ratings for some of the content:
-{{{JSON.stringify userRatings}}}
+{{{userRatings}}}
 
 The user prefers recommendations in the {{{languagePreference}}} language. Provide 3-5 recommendations that are either Korean or Chinese dramas/movies.
 
