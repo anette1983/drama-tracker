@@ -12,6 +12,12 @@ const MIN_CROSS_LANGUAGE_ITEMS = 3;
 
 export type ContentType = 'movie' | 'tv';
 export type EastAsianLanguage = 'ko' | 'zh';
+type TrendingSortBy = 'popularity.desc' | 'vote_average.desc';
+
+interface TrendingLanguageOptions {
+	sortBy?: TrendingSortBy;
+	minVotes?: number;
+}
 
 export interface TMDBContent {
 	id: number;
@@ -217,13 +223,18 @@ export async function getTrendingEastAsian(
 export async function getTrendingByLanguage(
 	type: ContentType,
 	language: EastAsianLanguage,
+	options: TrendingLanguageOptions = {},
 ): Promise<TMDBContent[]> {
 	try {
+		const sortBy = options.sortBy || 'popularity.desc';
+		const minVotes = options.minVotes ?? 150;
+
 		const data = await fetchTMDB(`/discover/${type}`, {
 			with_original_language: language,
-			sort_by: 'popularity.desc',
+			sort_by: sortBy,
 			include_adult: 'false',
 			without_genres: getWithoutGenresParam(type),
+			'vote_count.gte': String(minVotes),
 		});
 
 		return data.results.filter(

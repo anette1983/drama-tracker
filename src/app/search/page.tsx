@@ -36,8 +36,14 @@ export default async function SearchPage({
 		? await Promise.all([
 				getTrendingEastAsian('movie'),
 				getTrendingEastAsian('tv'),
-				getTrendingByLanguage('tv', 'ko'),
-				getTrendingByLanguage('tv', 'zh'),
+				getTrendingByLanguage('tv', 'ko', {
+					sortBy: 'vote_average.desc',
+					minVotes: 150,
+				}),
+				getTrendingByLanguage('tv', 'zh', {
+					sortBy: 'vote_average.desc',
+					minVotes: 150,
+				}),
 			])
 		: await Promise.all([
 				searchContent(query, 'movie'),

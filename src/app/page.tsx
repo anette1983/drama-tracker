@@ -10,8 +10,14 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default async function Home() {
 	const [koreanDramas, chineseDramas, trendingMovies] = await Promise.all([
-		getTrendingByLanguage('tv', 'ko'),
-		getTrendingByLanguage('tv', 'zh'),
+		getTrendingByLanguage('tv', 'ko', {
+			sortBy: 'vote_average.desc',
+			minVotes: 150,
+		}),
+		getTrendingByLanguage('tv', 'zh', {
+			sortBy: 'vote_average.desc',
+			minVotes: 150,
+		}),
 		getTrendingEastAsian('movie'),
 	]);
 	const heroImage = PlaceHolderImages.find((img) => img.id === 'hero-drama');
