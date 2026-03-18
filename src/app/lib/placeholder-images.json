@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-drama",
+      "description": "Serene cinematic landscape",
+      "imageUrl": "https://picsum.photos/seed/drama1/1200/600",
+      "imageHint": "cinematic landscape"
+    },
+    {
+      "id": "movie-night",
+      "description": "Cozy movie watching environment",
+      "imageUrl": "https://picsum.photos/seed/movie2/800/400",
+      "imageHint": "cozy movie"
+    }
+  ]
+}

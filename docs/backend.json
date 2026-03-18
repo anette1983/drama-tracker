@@ -1,0 +1,68 @@
+{
+	"entities": {
+		"UserProfile": {
+			"title": "UserProfile",
+			"description": "User account information and preferences.",
+			"type": "object",
+			"properties": {
+				"uid": { "type": "string" },
+				"displayName": { "type": "string" },
+				"photoURL": { "type": "string" },
+				"languagePreference": {
+					"type": "string",
+					"enum": ["Korean", "Chinese"]
+				}
+			},
+			"required": ["uid"]
+		},
+		"WatchedItem": {
+			"title": "WatchedItem",
+			"description": "A drama or movie the user has watched or is watching.",
+			"type": "object",
+			"properties": {
+				"contentId": { "type": "string" },
+				"contentType": { "type": "string", "enum": ["movie", "tv"] },
+				"title": { "type": "string" },
+				"posterPath": { "type": "string" },
+				"progress": {
+					"type": "number",
+					"description": "Percentage or episode count"
+				},
+				"rating": { "type": "number" },
+				"review": { "type": "string" },
+				"watchedAt": { "type": "string", "format": "date-time" }
+			},
+			"required": ["contentId", "contentType", "title"]
+		},
+		"FavoriteItem": {
+			"title": "FavoriteItem",
+			"description": "A drama or movie saved to favorites.",
+			"type": "object",
+			"properties": {
+				"contentId": { "type": "string" },
+				"contentType": { "type": "string", "enum": ["movie", "tv"] },
+				"title": { "type": "string" },
+				"posterPath": { "type": "string" },
+				"addedAt": { "type": "string", "format": "date-time" }
+			},
+			"required": ["contentId", "contentType", "title"]
+		}
+	},
+	"auth": {
+		"providers": ["google.com", "password"]
+	},
+	"firestore": {
+		"/users/{userId}": {
+			"schema": "UserProfile",
+			"description": "User profile document."
+		},
+		"/users/{userId}/watched": {
+			"schema": "WatchedItem",
+			"description": "User's watched history."
+		},
+		"/users/{userId}/favorites": {
+			"schema": "FavoriteItem",
+			"description": "User's favorite list."
+		}
+	}
+}
