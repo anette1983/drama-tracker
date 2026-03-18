@@ -1,15 +1,19 @@
 import { Navbar } from '@/components/navbar';
-import { getTrendingEastAsian } from '@/lib/tmdb';
+import { getTrendingByLanguage, getTrendingEastAsian } from '@/lib/tmdb';
 import { ContentCard } from '@/components/content-card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Sparkles, Film, Tv, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default async function Home() {
-	const trendingTV = await getTrendingEastAsian('tv');
-	const trendingMovies = await getTrendingEastAsian('movie');
+	const [koreanDramas, chineseDramas, trendingMovies] = await Promise.all([
+		getTrendingByLanguage('tv', 'ko'),
+		getTrendingByLanguage('tv', 'zh'),
+		getTrendingEastAsian('movie'),
+	]);
 	const heroImage = PlaceHolderImages.find((img) => img.id === 'hero-drama');
 
 	return (
@@ -64,7 +68,7 @@ export default async function Home() {
 					</div>
 				</section>
 
-				{/* Trending Section */}
+				{/* Trending Dramas */}
 				<section className='py-16 bg-background'>
 					<div className='container mx-auto px-4'>
 						<div className='flex items-center justify-between mb-8'>
@@ -84,11 +88,28 @@ export default async function Home() {
 							</Button>
 						</div>
 
-						<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
-							{trendingTV.slice(0, 12).map((item) => (
-								<ContentCard key={item.id} content={item} type='tv' />
-							))}
-						</div>
+						<Tabs defaultValue='korean' className='w-full'>
+							<TabsList className='bg-primary/10 mb-8'>
+								<TabsTrigger value='korean'>Korean</TabsTrigger>
+								<TabsTrigger value='chinese'>Chinese</TabsTrigger>
+							</TabsList>
+
+							<TabsContent value='korean'>
+								<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+									{koreanDramas.slice(0, 12).map((item) => (
+										<ContentCard key={item.id} content={item} type='tv' />
+									))}
+								</div>
+							</TabsContent>
+
+							<TabsContent value='chinese'>
+								<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+									{chineseDramas.slice(0, 12).map((item) => (
+										<ContentCard key={item.id} content={item} type='tv' />
+									))}
+								</div>
+							</TabsContent>
+						</Tabs>
 					</div>
 				</section>
 

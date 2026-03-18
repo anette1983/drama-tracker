@@ -6,9 +6,12 @@ const BASE_URL = 'https://api.themoviedb.org/3';
 const GENRE_ANIMATION = 16;
 const GENRE_DOCUMENTARY = 99;
 const GENRE_REALITY = 10764;
+const GENRE_SOAP = 10766;
 const GENRE_TALK = 10767;
+const MIN_CROSS_LANGUAGE_ITEMS = 3;
 
 export type ContentType = 'movie' | 'tv';
+export type EastAsianLanguage = 'ko' | 'zh';
 
 export interface TMDBContent {
 	id: number;
@@ -56,11 +59,36 @@ function isExcludedGenre(item: TMDBContent, type: ContentType) {
 		return true;
 	}
 
+	if (type === 'tv' && genreIds.includes(GENRE_SOAP)) {
+		return true;
+	}
+
 	if (type === 'tv' && genreIds.includes(GENRE_TALK)) {
 		return true;
 	}
 
 	return false;
+}
+
+function getWithoutGenresParam(type: ContentType) {
+	return type === 'tv'
+		? `${GENRE_ANIMATION},${GENRE_DOCUMENTARY},${GENRE_REALITY},${GENRE_SOAP},${GENRE_TALK}`
+		: `${GENRE_ANIMATION},${GENRE_DOCUMENTARY}`;
+}
+
+function mergeUniqueById(primary: TMDBContent[], secondary: TMDBContent[]) {
+	const seen = new Set<number>();
+	const merged: TMDBContent[] = [];
+
+	for (const item of [...primary, ...secondary]) {
+		if (seen.has(item.id)) {
+			continue;
+		}
+		seen.add(item.id);
+		merged.push(item);
+	}
+
+	return merged;
 }
 
 // Mock data for fallback
@@ -170,17 +198,12 @@ export async function getTrendingEastAsian(
 	type: ContentType = 'tv',
 ): Promise<TMDBContent[]> {
 	try {
-		const withoutGenres =
-			type === 'tv'
-				? `${GENRE_ANIMATION},${GENRE_DOCUMENTARY},${GENRE_REALITY},${GENRE_TALK}`
-				: `${GENRE_ANIMATION},${GENRE_DOCUMENTARY}`;
-
 		const data = await fetchTMDB(`/discover/${type}`, {
 			with_origin_country: 'KR|CN',
 			with_original_language: 'ko|zh',
 			sort_by: 'popularity.desc',
 			include_adult: 'false',
-			without_genres: withoutGenres,
+			without_genres: getWithoutGenresParam(type),
 		});
 		return data.results.filter(
 			(item: TMDBContent) => !isExcludedGenre(item, type),
@@ -188,6 +211,31 @@ export async function getTrendingEastAsian(
 	} catch (error) {
 		console.warn('Using mock trending data due to API error', error);
 		return MOCK_TRENDING.filter((item) => !isExcludedGenre(item, type));
+	}
+}
+
+export async function getTrendingByLanguage(
+	type: ContentType,
+	language: EastAsianLanguage,
+): Promise<TMDBContent[]> {
+	try {
+		const data = await fetchTMDB(`/discover/${type}`, {
+			with_original_language: language,
+			sort_by: 'popularity.desc',
+			include_adult: 'false',
+			without_genres: getWithoutGenresParam(type),
+		});
+
+		return data.results.filter(
+			(item: TMDBContent) =>
+				item.original_language === language && !isExcludedGenre(item, type),
+		);
+	} catch (error) {
+		console.warn('Using mock language trending data due to API error', error);
+		return MOCK_TRENDING.filter(
+			(item) =>
+				item.original_language === language && !isExcludedGenre(item, type),
+		);
 	}
 }
 
@@ -200,11 +248,73 @@ export async function getContentDetails(
 			append_to_response: 'credits,recommendations',
 		});
 
-		if (content.recommendations?.results) {
-			content.recommendations.results = content.recommendations.results.filter(
-				(item: TMDBContent) => !isExcludedGenre(item, type),
-			);
+		const baseRecommendations = (content.recommendations?.results || []).filter(
+			(item: TMDBContent) =>
+				item.id !== parseInt(id) &&
+				isEastAsianContent(item) &&
+				!isExcludedGenre(item, type),
+		);
+
+		const sourceLanguage = content.original_language;
+		let enrichedRecommendations = baseRecommendations;
+
+		if (sourceLanguage === 'ko' || sourceLanguage === 'zh') {
+			const oppositeLanguage = sourceLanguage === 'ko' ? 'zh' : 'ko';
+			const oppositeCount = baseRecommendations.filter(
+				(item: TMDBContent) => item.original_language === oppositeLanguage,
+			).length;
+
+			if (oppositeCount < MIN_CROSS_LANGUAGE_ITEMS) {
+				const genreIds = (content.genres || [])
+					.map((genre: { id: number }) => genre.id)
+					.filter(
+						(genreId: number) =>
+							genreId !== GENRE_ANIMATION &&
+							genreId !== GENRE_DOCUMENTARY &&
+							genreId !== GENRE_REALITY &&
+							genreId !== GENRE_SOAP &&
+							genreId !== GENRE_TALK,
+					)
+					.slice(0, 3)
+					.join('|');
+
+				const supplementalParams: Record<string, string> = {
+					with_origin_country: 'KR|CN',
+					with_original_language: oppositeLanguage,
+					sort_by: 'popularity.desc',
+					include_adult: 'false',
+					without_genres: getWithoutGenresParam(type),
+				};
+
+				if (genreIds) {
+					supplementalParams.with_genres = genreIds;
+				}
+
+				try {
+					const supplemental = await fetchTMDB(
+						`/discover/${type}`,
+						supplementalParams,
+					);
+					const supplementalFiltered = (supplemental.results || []).filter(
+						(item: TMDBContent) =>
+							item.id !== parseInt(id) &&
+							isEastAsianContent(item) &&
+							!isExcludedGenre(item, type),
+					);
+
+					enrichedRecommendations = mergeUniqueById(
+						baseRecommendations,
+						supplementalFiltered,
+					);
+				} catch {
+					// Keep base recommendations if supplemental fetch fails.
+				}
+			}
 		}
+
+		content.recommendations = {
+			results: enrichedRecommendations,
+		};
 
 		return content;
 	} catch (error) {
@@ -219,7 +329,10 @@ export async function getContentDetails(
 			credits: { cast: [] },
 			recommendations: {
 				results: MOCK_TRENDING.filter(
-					(m) => m.id !== parseInt(id) && !isExcludedGenre(m, type),
+					(m) =>
+						m.id !== parseInt(id) &&
+						isEastAsianContent(m) &&
+						!isExcludedGenre(m, type),
 				),
 			},
 		};
