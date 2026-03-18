@@ -32,7 +32,14 @@ export default async function SearchPage({
 	const query = params.q || '';
 	const isPopularMode = params.mode === 'popular';
 
-	const [movieResults, tvResults, koreanDramas, chineseDramas] = isPopularMode
+	const [
+		movieResults,
+		tvResults,
+		koreanDramas,
+		chineseDramas,
+		koreanMovies,
+		chineseMovies,
+	] = isPopularMode
 		? await Promise.all([
 				getTrendingEastAsian('movie'),
 				getTrendingEastAsian('tv'),
@@ -44,10 +51,20 @@ export default async function SearchPage({
 					sortBy: 'vote_average.desc',
 					minVotes: 150,
 				}),
+				getTrendingByLanguage('movie', 'ko', {
+					sortBy: 'vote_average.desc',
+					minVotes: 150,
+				}),
+				getTrendingByLanguage('movie', 'zh', {
+					sortBy: 'vote_average.desc',
+					minVotes: 150,
+				}),
 			])
 		: await Promise.all([
 				searchContent(query, 'movie'),
 				searchContent(query, 'tv'),
+				Promise.resolve([] as TMDBContent[]),
+				Promise.resolve([] as TMDBContent[]),
 				Promise.resolve([] as TMDBContent[]),
 				Promise.resolve([] as TMDBContent[]),
 			]);
@@ -55,6 +72,9 @@ export default async function SearchPage({
 	const displayedTvResults = isPopularMode
 		? mergeUniqueById(koreanDramas, chineseDramas)
 		: tvResults;
+	const displayedMovieResults = isPopularMode
+		? mergeUniqueById(koreanMovies, chineseMovies)
+		: movieResults;
 
 	return (
 		<div className='min-h-screen flex flex-col bg-background'>
@@ -68,8 +88,8 @@ export default async function SearchPage({
 					</h1>
 					<p className='text-muted-foreground'>
 						{isPopularMode
-							? `Showing ${movieResults.length + displayedTvResults.length} popular titles across dramas and movies.`
-							: `Found ${movieResults.length + displayedTvResults.length} matches in Korean and Chinese cinema.`}
+							? `Showing ${displayedMovieResults.length + displayedTvResults.length} popular titles across dramas and movies.`
+							: `Found ${displayedMovieResults.length + displayedTvResults.length} matches in Korean and Chinese cinema.`}
 					</p>
 				</header>
 
@@ -80,7 +100,7 @@ export default async function SearchPage({
 							Dramas ({displayedTvResults.length})
 						</TabsTrigger>
 						<TabsTrigger value='movie'>
-							Movies ({movieResults.length})
+							Movies ({displayedMovieResults.length})
 						</TabsTrigger>
 					</TabsList>
 
@@ -129,34 +149,75 @@ export default async function SearchPage({
 							</section>
 						)}
 
-						{movieResults.length > 0 && (
-							<section>
-								<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
-									Movies
-									<span className='h-px flex-1 bg-border ml-4' />
-								</h2>
-								<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
-									{movieResults.map((item) => (
-										<ContentCard key={item.id} content={item} type='movie' />
-									))}
-								</div>
-							</section>
+						{isPopularMode ? (
+							<>
+								{koreanMovies.length > 0 && (
+									<section>
+										<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+											Korean Movies
+											<span className='h-px flex-1 bg-border ml-4' />
+										</h2>
+										<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+											{koreanMovies.map((item) => (
+												<ContentCard
+													key={item.id}
+													content={item}
+													type='movie'
+												/>
+											))}
+										</div>
+									</section>
+								)}
+
+								{chineseMovies.length > 0 && (
+									<section>
+										<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+											Chinese Movies
+											<span className='h-px flex-1 bg-border ml-4' />
+										</h2>
+										<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+											{chineseMovies.map((item) => (
+												<ContentCard
+													key={item.id}
+													content={item}
+													type='movie'
+												/>
+											))}
+										</div>
+									</section>
+								)}
+							</>
+						) : (
+							displayedMovieResults.length > 0 && (
+								<section>
+									<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+										Movies
+										<span className='h-px flex-1 bg-border ml-4' />
+									</h2>
+									<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+										{displayedMovieResults.map((item) => (
+											<ContentCard key={item.id} content={item} type='movie' />
+										))}
+									</div>
+								</section>
+							)
 						)}
 
-						{displayedTvResults.length === 0 && movieResults.length === 0 && (
-							<div className='text-center py-20 bg-white/50 rounded-2xl border border-dashed border-primary/40'>
-								<p className='text-xl text-muted-foreground mb-4'>
-									{isPopularMode
-										? 'No popular titles found right now'
-										: `No results found for "${query}"`}
-								</p>
-								<p className='text-sm'>
-									{isPopularMode
-										? 'Please try again in a moment.'
-										: 'Try searching for broader terms or check the spelling.'}
-								</p>
-							</div>
-						)}
+						{displayedTvResults.length === 0 &&
+							displayedMovieResults.length === 0 && (
+								<div className='text-center py-20 bg-white/50 rounded-2xl border border-dashed border-primary/40'>
+									<p className='text-xl text-muted-foreground mb-4'>
+										{isPopularMode
+											? 'No popular titles found right now'
+											: `No results found for "${query}"`}
+									</p>
+									<p className='text-sm'>
+										{isPopularMode
+											? 'Please try again in a moment.'
+											: 'Try searching for broader terms or check the spelling.'}
+									</p>
+								</div>
+							)}
 					</TabsContent>
 
 					<TabsContent value='tv'>
@@ -196,11 +257,39 @@ export default async function SearchPage({
 					</TabsContent>
 
 					<TabsContent value='movie'>
-						<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
-							{movieResults.map((item) => (
-								<ContentCard key={item.id} content={item} type='movie' />
-							))}
-						</div>
+						{isPopularMode ? (
+							<div className='space-y-12'>
+								<section>
+									<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+										Korean Movies
+										<span className='h-px flex-1 bg-border ml-4' />
+									</h2>
+									<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+										{koreanMovies.map((item) => (
+											<ContentCard key={item.id} content={item} type='movie' />
+										))}
+									</div>
+								</section>
+
+								<section>
+									<h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
+										Chinese Movies
+										<span className='h-px flex-1 bg-border ml-4' />
+									</h2>
+									<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+										{chineseMovies.map((item) => (
+											<ContentCard key={item.id} content={item} type='movie' />
+										))}
+									</div>
+								</section>
+							</div>
+						) : (
+							<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+								{displayedMovieResults.map((item) => (
+									<ContentCard key={item.id} content={item} type='movie' />
+								))}
+							</div>
+						)}
 					</TabsContent>
 				</Tabs>
 			</main>

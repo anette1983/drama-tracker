@@ -9,17 +9,25 @@ import Link from 'next/link';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default async function Home() {
-	const [koreanDramas, chineseDramas, trendingMovies] = await Promise.all([
-		getTrendingByLanguage('tv', 'ko', {
-			sortBy: 'vote_average.desc',
-			minVotes: 150,
-		}),
-		getTrendingByLanguage('tv', 'zh', {
-			sortBy: 'vote_average.desc',
-			minVotes: 150,
-		}),
-		getTrendingEastAsian('movie'),
-	]);
+	const [koreanDramas, chineseDramas, koreanMovies, chineseMovies] =
+		await Promise.all([
+			getTrendingByLanguage('tv', 'ko', {
+				sortBy: 'vote_average.desc',
+				minVotes: 150,
+			}),
+			getTrendingByLanguage('tv', 'zh', {
+				sortBy: 'vote_average.desc',
+				minVotes: 150,
+			}),
+			getTrendingByLanguage('movie', 'ko', {
+				sortBy: 'vote_average.desc',
+				minVotes: 150,
+			}),
+			getTrendingByLanguage('movie', 'zh', {
+				sortBy: 'vote_average.desc',
+				minVotes: 150,
+			}),
+		]);
 	const heroImage = PlaceHolderImages.find((img) => img.id === 'hero-drama');
 
 	return (
@@ -157,7 +165,7 @@ export default async function Home() {
 					</div>
 				</section>
 
-				{/* Trending Movies */}
+				{/* Movies */}
 				<section className='py-16 bg-background'>
 					<div className='container mx-auto px-4'>
 						<div className='flex items-center justify-between mb-8'>
@@ -165,9 +173,7 @@ export default async function Home() {
 								<div className='p-2 rounded-lg bg-primary/20 text-accent'>
 									<Film className='w-6 h-6' />
 								</div>
-								<h2 className='text-2xl font-headline font-bold'>
-									Popular Movies
-								</h2>
+								<h2 className='text-2xl font-headline font-bold'>Movies</h2>
 							</div>
 							<Button
 								variant='ghost'
@@ -177,11 +183,28 @@ export default async function Home() {
 							</Button>
 						</div>
 
-						<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
-							{trendingMovies.slice(0, 12).map((item) => (
-								<ContentCard key={item.id} content={item} type='movie' />
-							))}
-						</div>
+						<Tabs defaultValue='korean' className='w-full'>
+							<TabsList className='bg-primary/10 mb-8'>
+								<TabsTrigger value='korean'>Korean</TabsTrigger>
+								<TabsTrigger value='chinese'>Chinese</TabsTrigger>
+							</TabsList>
+
+							<TabsContent value='korean'>
+								<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+									{koreanMovies.slice(0, 12).map((item) => (
+										<ContentCard key={item.id} content={item} type='movie' />
+									))}
+								</div>
+							</TabsContent>
+
+							<TabsContent value='chinese'>
+								<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+									{chineseMovies.slice(0, 12).map((item) => (
+										<ContentCard key={item.id} content={item} type='movie' />
+									))}
+								</div>
+							</TabsContent>
+						</Tabs>
 					</div>
 				</section>
 			</main>
