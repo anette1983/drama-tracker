@@ -11,10 +11,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthenticatedGuard } from './authenticated.guard';
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 import { Request, Response } from 'express';
+import { randomBytes } from 'crypto';
 
 class RegisterDto {
 	@IsEmail()
@@ -45,25 +47,49 @@ export class AuthController {
 	) {}
 
 	@Post('register')
-	async register(@Req() req: Request, @Body() dto: RegisterDto) {
+	@UseGuards(ThrottlerGuard)
+	@Throttle({ default: { ttl: 60000, limit: 5 } })
+	async register(
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response,
+		@Body() dto: RegisterDto,
+	) {
 		const user = await this.authService.register(
 			dto.email,
 			dto.password,
 			dto.displayName,
 		);
-		return new Promise<void>((resolve, reject) => {
+		await new Promise<void>((resolve, reject) => {
 			req.logIn(user, (err) => {
 				if (err) return reject(err);
 				resolve();
 			});
-		}).then(() => this.sanitizeUser(user));
+		});
+		this.regenerateCsrfToken(req, res);
+		return this.sanitizeUser(user);
 	}
 
-	@UseGuards(AuthGuard('local'))
+	@UseGuards(ThrottlerGuard)
+	@Throttle({ default: { ttl: 60000, limit: 5 } })
 	@Post('login')
 	@HttpCode(HttpStatus.OK)
-	login(@Req() req: Request) {
-		return this.sanitizeUser(req.user as any);
+	async login(
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response,
+		@Body() dto: LoginDto,
+	) {
+		const user = await this.authService.validateLocalUser(
+			dto.email,
+			dto.password,
+		);
+		await new Promise<void>((resolve, reject) => {
+			req.logIn(user, (err) => {
+				if (err) return reject(err);
+				resolve();
+			});
+		});
+		this.regenerateCsrfToken(req, res);
+		return this.sanitizeUser(user);
 	}
 
 	@Get('google')
@@ -84,7 +110,7 @@ export class AuthController {
 
 	@Post('logout')
 	@HttpCode(HttpStatus.OK)
-	async logout(@Req() req: Request) {
+	async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
 		await new Promise<void>((resolve, reject) => {
 			req.logOut((err) => {
 				if (err) return reject(err);
@@ -94,6 +120,7 @@ export class AuthController {
 		await new Promise<void>((resolve) => {
 			req.session.destroy(() => resolve());
 		});
+		res.clearCookie('connect.sid');
 		return { message: 'Logged out' };
 	}
 
@@ -101,6 +128,12 @@ export class AuthController {
 	@UseGuards(AuthenticatedGuard)
 	me(@Req() req: Request) {
 		return this.sanitizeUser(req.user as any);
+	}
+
+	private regenerateCsrfToken(req: Request, res: Response) {
+		const token = randomBytes(32).toString('hex');
+		req.session.csrfToken = token;
+		res.setHeader('X-CSRF-Token', token);
 	}
 
 	private sanitizeUser(user: any) {

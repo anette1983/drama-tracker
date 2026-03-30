@@ -6,6 +6,7 @@ import passport = require('passport');
 import connectPgSimple = require('connect-pg-simple');
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import { CsrfMiddleware } from './common/csrf.middleware';
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
@@ -20,6 +21,7 @@ async function bootstrap() {
 		origin: frontendUrl,
 		credentials: true,
 		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+		exposedHeaders: ['X-CSRF-Token'],
 	});
 
 	app.useGlobalPipes(
@@ -35,19 +37,21 @@ async function bootstrap() {
 	app.use(
 		session({
 			store: new PgStore({
-				conString: `postgresql://${configService.get('DATABASE_USER', 'postgres')}:${configService.get('DATABASE_PASSWORD', 'postgres')}@${configService.get('DATABASE_HOST', 'localhost')}:${configService.get('DATABASE_PORT', '5432')}/${configService.get('DATABASE_NAME', 'drama_tracker')}`,
+				conString:
+					configService.get('DATABASE_URL') ||
+					`postgresql://${configService.get('DATABASE_USER', 'postgres')}:${configService.get('DATABASE_PASSWORD', 'postgres')}@${configService.get('DATABASE_HOST', 'localhost')}:${configService.get('DATABASE_PORT', '5432')}/${configService.get('DATABASE_NAME', 'drama_tracker')}`,
 				createTableIfMissing: true,
 			}),
-			secret: configService.get<string>(
-				'SESSION_SECRET',
-				'dev-secret-change-me',
-			),
+			secret: configService.getOrThrow<string>('SESSION_SECRET'),
 			resave: false,
 			saveUninitialized: false,
 			cookie: {
 				maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 				httpOnly: true,
-				sameSite: 'lax',
+				sameSite:
+					configService.get('NODE_ENV') === 'production'
+						? ('none' as const)
+						: ('lax' as const),
 				secure: configService.get('NODE_ENV') === 'production',
 			},
 		}),
@@ -55,6 +59,9 @@ async function bootstrap() {
 
 	app.use(passport.initialize());
 	app.use(passport.session());
+
+	const csrf = new CsrfMiddleware();
+	app.use((req: any, res: any, next: any) => csrf.use(req, res, next));
 
 	const port = configService.get<number>('PORT', 3001);
 	await app.listen(port);
