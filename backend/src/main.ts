@@ -12,6 +12,12 @@ async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 
 	const configService = app.get(ConfigService);
+	const isProduction = configService.get('NODE_ENV') === 'production';
+
+	if (isProduction) {
+		app.getHttpAdapter().getInstance().set('trust proxy', 1);
+	}
+
 	const frontendUrl = configService.get<string>(
 		'FRONTEND_URL',
 		'http://localhost:9002',
@@ -48,11 +54,8 @@ async function bootstrap() {
 			cookie: {
 				maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 				httpOnly: true,
-				sameSite:
-					configService.get('NODE_ENV') === 'production'
-						? ('none' as const)
-						: ('lax' as const),
-				secure: configService.get('NODE_ENV') === 'production',
+				sameSite: isProduction ? ('none' as const) : ('lax' as const),
+				secure: isProduction,
 			},
 		}),
 	);
