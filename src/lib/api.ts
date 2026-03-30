@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE =
+	typeof window !== 'undefined'
+		? '/api' // Browser: use Next.js proxy (same-origin, no CORS/cookie issues)
+		: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'; // SSR: direct
 
 let csrfToken: string | null = null;
 
@@ -47,7 +50,10 @@ export const api = {
 				body: JSON.stringify({ email, password }),
 			}),
 		logout: () => request<void>('/auth/logout', { method: 'POST' }),
-		googleUrl: `${API_BASE}/auth/google`,
+		googleUrl:
+			typeof window !== 'undefined'
+				? '/api/auth/google'
+				: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/auth/google`,
 	},
 
 	// Favorites

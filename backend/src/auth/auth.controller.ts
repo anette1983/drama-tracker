@@ -66,6 +66,7 @@ export class AuthController {
 			});
 		});
 		this.regenerateCsrfToken(req, res);
+		await this.saveSession(req);
 		return this.sanitizeUser(user);
 	}
 
@@ -89,6 +90,7 @@ export class AuthController {
 			});
 		});
 		this.regenerateCsrfToken(req, res);
+		await this.saveSession(req);
 		return this.sanitizeUser(user);
 	}
 
@@ -134,6 +136,15 @@ export class AuthController {
 		const token = randomBytes(32).toString('hex');
 		req.session.csrfToken = token;
 		res.setHeader('X-CSRF-Token', token);
+	}
+
+	private saveSession(req: Request): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			req.session.save((err) => {
+				if (err) return reject(err);
+				resolve();
+			});
+		});
 	}
 
 	private sanitizeUser(user: any) {

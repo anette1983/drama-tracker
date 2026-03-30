@@ -51,10 +51,11 @@ async function bootstrap() {
 			secret: configService.getOrThrow<string>('SESSION_SECRET'),
 			resave: false,
 			saveUninitialized: false,
+			proxy: isProduction,
 			cookie: {
 				maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 				httpOnly: true,
-				sameSite: isProduction ? ('none' as const) : ('lax' as const),
+				sameSite: 'lax' as const,
 				secure: isProduction,
 			},
 		}),
