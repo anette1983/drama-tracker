@@ -24,15 +24,18 @@
 
 - Implemented routes: Home, Search, Dashboard, and Content Detail.
 - Implemented data source: TMDb integration with fallback mock data for resilience.
-- Implemented AI path: Genkit flow exists for recommendations.
+- Implemented AI path: Genkit flow for recommendations (running in NestJS backend).
 - Implemented UI system: Tailwind + reusable UI components.
-- Planned but not fully implemented: user auth, persistent favorites/watched/reviews, and complete production hardening.
+- Implemented backend: NestJS with PostgreSQL + TypeORM (in backend/ folder).
+- Implemented auth: Session-based with Passport.js (local + Google OAuth).
+- Implemented API: REST endpoints for auth, favorites, watched, recommendations.
+- Frontend API client: src/lib/api.ts for all backend communication.
 
 ## Cost Constraint (Must Stay Free For Now)
 
 - The product must run on free tiers during MVP.
 - TMDb: free API usage with attribution and quota awareness.
-- Firebase: Spark plan only (auth, Firestore, hosting where applicable).
+- PostgreSQL: local development, free-tier hosting for production (e.g., Railway, Render, Neon).
 - AI in production: optional only. Default recommendation path must not require paid model calls.
 
 ## Free-First Architecture Decisions
@@ -54,9 +57,10 @@
 
 ### Phase 2: Auth and Data Foundation
 
-- Implement Firebase Auth (Google + email/password).
-- Add user session context for app-wide access.
-- Implement Firestore repositories for profile, favorites, and watched items.
+- NestJS backend with PostgreSQL + TypeORM is implemented in backend/.
+- Session-based auth with Passport.js (local email/password + Google OAuth).
+- User, WatchedItem, FavoriteItem entities with proper relations and unique constraints.
+- REST API endpoints for all CRUD operations.
 
 ### Phase 3: Tracking Workflows
 
@@ -66,13 +70,13 @@
 ### Phase 4: Free Recommendation Engine
 
 - Implement rule-based recommendations from watched history and ratings.
-- Keep Genkit AI as optional fallback behind env flag.
+- Keep Genkit AI in NestJS backend as optional fallback behind env flag.
 - Ensure dashboard always returns useful recommendations even when AI is off.
 
 ### Phase 5: Security, Reliability, and CI
 
-- Harden Firestore security rules for strict per-user access.
-- Add request/data validation for all writes.
+- Harden API endpoints with proper role/ownership guards.
+- Add request/data validation for all writes (class-validator DTOs).
 - Add TMDb caching + retry strategy.
 - Add CI checks (typecheck, lint, build) and smoke tests.
 
@@ -87,12 +91,12 @@ For the full prioritized table, sprint plan, and delivery checklist, see [docs/r
 
 - P0: Create Favorites route page.
 - P0: Create Watched route page.
-- P0: Add Firebase config/env contract.
-- P0: Implement Auth flows.
-- P0: Implement Firestore favorites and watched repositories.
+- P0: Add NestJS backend config/env contract.
+- P0: Implement Auth flows (local + Google OAuth).
+- P0: Implement favorites and watched REST endpoints.
 - P0: Wire Add to Favorites and Mark Watched actions.
 - P0: Implement rule-based recommendation service.
-- P0: Add Firestore security rules.
+- P0: Add API endpoint guards and ownership checks.
 - P0: Add CI quality gates.
 
 ## Definition of Done (MVP)

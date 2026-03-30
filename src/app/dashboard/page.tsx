@@ -1,7 +1,6 @@
 import { Navbar } from '@/components/navbar';
 import { getTrendingEastAsian, getImageUrl } from '@/lib/tmdb';
 import { ContentCard } from '@/components/content-card';
-import { recommendDramasAndMovies } from '@/ai/flows/ai-drama-movie-recommendation-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, History, Heart, Play } from 'lucide-react';
@@ -10,25 +9,10 @@ import Image from 'next/image';
 export default async function DashboardPage() {
 	const trending = await getTrendingEastAsian('tv');
 
-	// Mock user data for AI recommendations
-	const watchedHistory = ['Crash Landing on You', 'The Untamed', 'Squid Game'];
-	const userRatings = [
-		{ title: 'Crash Landing on You', rating: 5 },
-		{ title: 'The Untamed', rating: 5 },
-		{ title: 'Squid Game', rating: 4 },
-	];
-
-	// Fetch AI Recommendations
-	let aiRecs: any = { recommendations: [] };
-	try {
-		aiRecs = await recommendDramasAndMovies({
-			watchedHistory,
-			userRatings,
-			languagePreference: 'Korean',
-		});
-	} catch (error) {
-		console.error('AI Recommendation failed', error);
-	}
+	// AI recommendations are now served by the NestJS backend
+	// They require authentication, so they'll be fetched client-side
+	// For SSR, we show the trending content and an empty recommendations placeholder
+	const aiRecs: { recommendations: any[] } = { recommendations: [] };
 
 	return (
 		<div className='min-h-screen bg-background flex flex-col'>
@@ -59,7 +43,7 @@ export default async function DashboardPage() {
 											AI Personalized Picks
 										</h2>
 										<p className='text-sm text-muted-foreground'>
-											Based on your love for {watchedHistory[0]}
+											Based on your watch history
 										</p>
 									</div>
 								</div>

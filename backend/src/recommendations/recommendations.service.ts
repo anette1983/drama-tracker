@@ -1,16 +1,16 @@
-'use server';
-/**
- * @fileOverview A Genkit flow for providing AI-powered drama and movie recommendations.
- *
- * - recommendDramasAndMovies - A function that generates drama/movie recommendations.
- * - AIDramaMovieRecommendationInput - The input type for the recommendDramasAndMovies function.
- * - AIDramaMovieRecommendationOutput - The return type for the recommendDramasAndMovies function.
- */
-
-import { ai } from '@/ai/genkit';
+import { Injectable } from '@nestjs/common';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
+import { WatchedService } from '../watched/watched.service';
+import { User } from '../users/entities/user.entity';
 
-const AIDramaMovieRecommendationInputSchema = z.object({
+const ai = genkit({
+	plugins: [googleAI()],
+	model: 'googleai/gemini-2.5-flash',
+});
+
+const RecommendationInputSchema = z.object({
 	watchedHistory: z
 		.array(z.string())
 		.describe(
@@ -25,23 +25,18 @@ const AIDramaMovieRecommendationInputSchema = z.object({
 					.int()
 					.min(1)
 					.max(5)
-					.describe('The user-assigned rating (1-5 stars) for the content.'),
+					.describe('The user-assigned rating (1-5 stars).'),
 			}),
 		)
 		.describe(
-			'A list of objects, each containing a movie/drama title and its 1-5 star user rating.',
+			'A list of objects, each with a title and its 1-5 star user rating.',
 		),
 	languagePreference: z
 		.enum(['Korean', 'Chinese'])
-		.describe(
-			"The user's preferred language for recommendations (Korean or Chinese).",
-		),
+		.describe("The user's preferred language for recommendations."),
 });
-export type AIDramaMovieRecommendationInput = z.infer<
-	typeof AIDramaMovieRecommendationInputSchema
->;
 
-const AIDramaMovieRecommendationOutputSchema = z.object({
+const RecommendationOutputSchema = z.object({
 	recommendations: z
 		.array(
 			z.object({
@@ -50,35 +45,24 @@ const AIDramaMovieRecommendationOutputSchema = z.object({
 					.describe('The title of the recommended drama or movie.'),
 				genre: z
 					.string()
-					.describe(
-						'The primary genre of the recommended content (e.g., Romance, Action, Historical).',
-					),
+					.describe('The primary genre of the recommended content.'),
 				description: z
 					.string()
 					.describe('A brief summary of the drama or movie.'),
 				reasonForRecommendation: z
 					.string()
 					.describe(
-						"A specific reason why this content is recommended based on the user's history and preferences.",
+						"Why this content is recommended based on the user's history.",
 					),
 			}),
 		)
 		.describe('A list of recommended Korean or Chinese dramas/movies.'),
 });
-export type AIDramaMovieRecommendationOutput = z.infer<
-	typeof AIDramaMovieRecommendationOutputSchema
->;
-
-export async function recommendDramasAndMovies(
-	input: AIDramaMovieRecommendationInput,
-): Promise<AIDramaMovieRecommendationOutput> {
-	return recommendDramasAndMoviesFlow(input);
-}
 
 const recommendationPrompt = ai.definePrompt({
 	name: 'recommendDramasAndMoviesPrompt',
-	input: { schema: AIDramaMovieRecommendationInputSchema },
-	output: { schema: AIDramaMovieRecommendationOutputSchema },
+	input: { schema: RecommendationInputSchema },
+	output: { schema: RecommendationOutputSchema },
 	prompt: `You are an AI assistant specialized in recommending Korean and Chinese dramas and movies. Your goal is to suggest new content based on the user's watched history and their ratings, focusing on content they are likely to enjoy.
 
 Here is the user's watched history:
@@ -94,11 +78,11 @@ For each recommendation, include the title, genre, a brief description, and a sp
 Ensure the output strictly adheres to the following JSON schema described in the output.schema.`,
 });
 
-const recommendDramasAndMoviesFlow = ai.defineFlow(
+const recommendFlow = ai.defineFlow(
 	{
 		name: 'recommendDramasAndMoviesFlow',
-		inputSchema: AIDramaMovieRecommendationInputSchema,
-		outputSchema: AIDramaMovieRecommendationOutputSchema,
+		inputSchema: RecommendationInputSchema,
+		outputSchema: RecommendationOutputSchema,
 	},
 	async (input) => {
 		const { output } = await recommendationPrompt(input);
@@ -108,3 +92,31 @@ const recommendDramasAndMoviesFlow = ai.defineFlow(
 		return output;
 	},
 );
+
+export type RecommendationOutput = z.infer<typeof RecommendationOutputSchema>;
+
+@Injectable()
+export class RecommendationsService {
+	constructor(private readonly watchedService: WatchedService) {}
+
+	async getRecommendations(user: User): Promise<RecommendationOutput> {
+		const watchedItems = await this.watchedService.findAllByUser(user);
+
+		if (watchedItems.length === 0) {
+			return { recommendations: [] };
+		}
+
+		const watchedHistory = watchedItems.map((item) => item.title);
+		const userRatings = watchedItems
+			.filter((item) => item.rating != null)
+			.map((item) => ({ title: item.title, rating: item.rating }));
+
+		const languagePreference = user.languagePreference || 'Korean';
+
+		return recommendFlow({
+			watchedHistory,
+			userRatings,
+			languagePreference,
+		});
+	}
+}

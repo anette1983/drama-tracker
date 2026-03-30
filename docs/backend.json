@@ -1,68 +1,112 @@
 {
 	"entities": {
-		"UserProfile": {
-			"title": "UserProfile",
-			"description": "User account information and preferences.",
+		"User": {
+			"title": "User",
+			"description": "User account information and preferences. Stored in PostgreSQL via TypeORM.",
 			"type": "object",
+			"table": "users",
 			"properties": {
-				"uid": { "type": "string" },
-				"displayName": { "type": "string" },
-				"photoURL": { "type": "string" },
+				"id": {
+					"type": "string",
+					"format": "uuid",
+					"description": "Auto-generated primary key"
+				},
+				"email": { "type": "string", "unique": true },
+				"displayName": { "type": "string", "nullable": true },
+				"photoURL": { "type": "string", "nullable": true },
 				"languagePreference": {
 					"type": "string",
-					"enum": ["Korean", "Chinese"]
-				}
+					"enum": ["Korean", "Chinese"],
+					"nullable": true
+				},
+				"passwordHash": {
+					"type": "string",
+					"nullable": true,
+					"description": "Null for Google-only users"
+				},
+				"googleId": {
+					"type": "string",
+					"nullable": true,
+					"unique": true,
+					"description": "Null for email-only users"
+				},
+				"createdAt": { "type": "string", "format": "date-time" },
+				"updatedAt": { "type": "string", "format": "date-time" }
 			},
-			"required": ["uid"]
+			"required": ["id", "email"]
 		},
 		"WatchedItem": {
 			"title": "WatchedItem",
 			"description": "A drama or movie the user has watched or is watching.",
 			"type": "object",
+			"table": "watched_items",
 			"properties": {
-				"contentId": { "type": "string" },
+				"id": { "type": "string", "format": "uuid" },
+				"userId": {
+					"type": "string",
+					"format": "uuid",
+					"description": "FK to users.id, CASCADE delete"
+				},
+				"contentId": { "type": "string", "description": "TMDb ID" },
 				"contentType": { "type": "string", "enum": ["movie", "tv"] },
 				"title": { "type": "string" },
-				"posterPath": { "type": "string" },
+				"posterPath": { "type": "string", "nullable": true },
 				"progress": {
 					"type": "number",
-					"description": "Percentage or episode count"
+					"description": "0-100 percentage",
+					"default": 0
 				},
-				"rating": { "type": "number" },
-				"review": { "type": "string" },
-				"watchedAt": { "type": "string", "format": "date-time" }
+				"rating": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 5,
+					"nullable": true
+				},
+				"review": { "type": "string", "nullable": true },
+				"watchedAt": { "type": "string", "format": "date-time" },
+				"createdAt": { "type": "string", "format": "date-time" },
+				"updatedAt": { "type": "string", "format": "date-time" }
 			},
-			"required": ["contentId", "contentType", "title"]
+			"required": ["id", "userId", "contentId", "contentType", "title"],
+			"uniqueConstraints": [["userId", "contentId", "contentType"]]
 		},
 		"FavoriteItem": {
 			"title": "FavoriteItem",
 			"description": "A drama or movie saved to favorites.",
 			"type": "object",
+			"table": "favorites",
 			"properties": {
-				"contentId": { "type": "string" },
+				"id": { "type": "string", "format": "uuid" },
+				"userId": {
+					"type": "string",
+					"format": "uuid",
+					"description": "FK to users.id, CASCADE delete"
+				},
+				"contentId": { "type": "string", "description": "TMDb ID" },
 				"contentType": { "type": "string", "enum": ["movie", "tv"] },
 				"title": { "type": "string" },
-				"posterPath": { "type": "string" },
+				"posterPath": { "type": "string", "nullable": true },
 				"addedAt": { "type": "string", "format": "date-time" }
 			},
-			"required": ["contentId", "contentType", "title"]
+			"required": ["id", "userId", "contentId", "contentType", "title"],
+			"uniqueConstraints": [["userId", "contentId", "contentType"]]
 		}
 	},
 	"auth": {
-		"providers": ["google.com", "password"]
+		"strategy": "session-based",
+		"providers": [
+			"local (email/password with bcrypt)",
+			"google (passport-google-oauth20)"
+		],
+		"sessionStore": "connect-pg-simple (PostgreSQL)"
 	},
-	"firestore": {
-		"/users/{userId}": {
-			"schema": "UserProfile",
-			"description": "User profile document."
-		},
-		"/users/{userId}/watched": {
-			"schema": "WatchedItem",
-			"description": "User's watched history."
-		},
-		"/users/{userId}/favorites": {
-			"schema": "FavoriteItem",
-			"description": "User's favorite list."
-		}
+	"database": {
+		"type": "PostgreSQL",
+		"orm": "TypeORM",
+		"synchronize": "true in development, migrations in production"
+	},
+	"backend": {
+		"framework": "NestJS",
+		"location": "backend/ (monorepo)"
 	}
 }
